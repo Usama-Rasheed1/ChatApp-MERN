@@ -1,3 +1,4 @@
+import { getReceiverSocketId, io } from "../socket/socket.js";
 import Conversation from "./../models/conversationModel.js";
 import Message from "./../models/messageModel.js";
 
@@ -24,8 +25,16 @@ export const sendMessage = async (req, res) => {
     if (newMessage) {
       conversation.messages.push(newMessage._id);
     }
-    // SOCKET IO WILL GO HERE
     await Promise.all([conversation.save(), newMessage.save()]);
+
+    // SOCKET IO WILL GO HERE
+
+    const receiverSocketId = getReceiverSocketId(receiverId);
+    if (receiverSocketId) {
+      // To send Events to a specific client:
+      io.to(receiverSocketId).emit("newMessage", newMessage);
+    }
+
     res.status(201).json(newMessage);
   } catch (error) {
     console.log("Error in sendMessage controller: ", error.message);
@@ -40,8 +49,8 @@ export const getMessages = async (req, res) => {
     const conversation = await Conversation.findOne({
       participants: { $all: [senderId, userToChatId] },
     }).populate("messages");
-    if(!conversation) return res.status(200).json([]);
-    const messages = conversation.messages
+    if (!conversation) return res.status(200).json([]);
+    const messages = conversation.messages;
     res.status(200).json(messages);
   } catch (error) {
     console.log("Error in getMessages controller: ", error.message);
